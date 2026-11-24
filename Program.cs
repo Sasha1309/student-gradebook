@@ -41,6 +41,29 @@ public sealed class StudentRegistry
     /// <summary>Gets all registered students in insertion order.</summary>
     public IReadOnlyList<Student> Students => students.AsReadOnly();
 
+    /// <summary>Finds students whose selected field contains the supplied text, ignoring case.</summary>
+    /// <param name="field">A field name: name, specialty, or group.</param>
+    /// <param name="query">The text to find.</param>
+    /// <returns>Matching students in insertion order; an empty list when no matches exist.</returns>
+    /// <exception cref="ArgumentException">The field name is not supported.</exception>
+    public IReadOnlyList<Student> Search(string field, string query)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(field);
+        ArgumentNullException.ThrowIfNull(query);
+
+        Func<Student, string> selector = field.Trim().ToLowerInvariant() switch
+        {
+            "name" or "имя" => student => student.Name,
+            "specialty" or "специальность" => student => student.Specialty,
+            "group" or "группа" => student => student.Group,
+            _ => throw new ArgumentException("Поле должно быть name, specialty или group.", nameof(field))
+        };
+
+        return students
+            .Where(student => selector(student).Contains(query.Trim(), StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+    }
+
     /// <summary>Adds a student after validating required text and grade.</summary>
     /// <param name="student">The student record to add.</param>
     /// <exception cref="ArgumentNullException">The student record is null.</exception>
@@ -103,5 +126,25 @@ internal static class Program
             Console.WriteLine("Список пуст.");
         foreach (Student student in registry.Students)
             Console.WriteLine(student);
+
+        if (registry.Students.Count > 0)
+        {
+            Console.Write("\nПоиск: поле (имя, специальность, группа): ");
+            string field = (Console.ReadLine() ?? "").Trim();
+            Console.Write("Текст для поиска: ");
+            string query = (Console.ReadLine() ?? "").Trim();
+            try
+            {
+                IReadOnlyList<Student> matches = registry.Search(field, query);
+                Console.WriteLine(matches.Count == 0 ? "Совпадений не найдено." : "Результаты поиска:");
+                foreach (Student student in matches)
+                    Console.WriteLine(student);
+            }
+            catch (ArgumentException exception)
+            {
+                Console.WriteLine($"Ошибка: {exception.Message}");
+            }
+        }
     }
 }
+
